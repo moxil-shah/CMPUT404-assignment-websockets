@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width" />
     <meta name="license" content="
         Copyright 2013 Google, Abram Hindle
+        Copyright 2022 Google, Moxil Shah
         
         Licensed under the Apache License, Version 2.0 (the "License");
         you may not use this file except in compliance with the License.
@@ -47,15 +48,23 @@ world = {};
 //XXX: TODO Make this prettier!
 function drawCircle(context,entity) {
     with(context) {
+
+        var gradient = createLinearGradient(0, 0, window. innerWidth, 0);
+        gradient.addColorStop("0", "magenta");
+        gradient.addColorStop("0.5" ,"blue");
+        gradient.addColorStop("1.0", "red");
+
         beginPath();                
-        lineWidth = 3;
+        lineWidth = 10;
         var x = entity["x"];
         var y = entity["y"];
         //moveTo(x,y);
         fillStyle = entity["colour"];
-        strokeStyle = fillStyle;
+        strokeStyle = gradient;
         arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
-        stroke();                                
+        stroke();   
+        fill();       
+                              
     }
 }
 
@@ -72,7 +81,7 @@ function prepEntity(entity) {
 function clearFrame() {
     with(context) {
 	moveTo(0,0);
-	fillStyle = "#000";
+	fillStyle = "#180A0A";
 	fillRect(0,0,W,H);
     }
 
@@ -125,6 +134,9 @@ function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just modified!
+    let updateObj = {};
+    updateObj[entity] = data;
+    socket.send(JSON.stringify(updateObj));
 }
 var counter = 0;
 function addEntityWithoutName(data) {
@@ -231,17 +243,24 @@ mouse = (function() {
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    addEntityWithoutName({'x':x,'y':y,'colour':'#711A75'});
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    addEntityWithoutName({'x':x,'y':y,'colour':'#F10086'});
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
-                          'radius':10});
+    addEntityWithoutName({'x':x,'y':y,'colour':'#F582A7',
+                          'radius':getRandomIntInclusive(5, 35)});
 });
+
+// from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random
+function getRandomIntInclusive(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1) + min); // The maximum is inclusive and the minimum is inclusive
+}
 
 
 function update() {
@@ -254,6 +273,7 @@ function wsSetup() {
     socket = new WebSocket(url);
     socket.onopen = function() {
         //XXX: TODO What are you going to do here?
+        socket.send(JSON.stringify(world));
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
@@ -261,7 +281,12 @@ function wsSetup() {
     socket.onmessage = function(msg) {  
         try {
             debug("WebSocket Recv:" + msg.data);
-            //XXX: TODO What are you going to do here?            
+            //XXX: TODO What are you going to do here?  
+            let dataRecv = JSON.parse(msg.data);
+            for (var each in dataRecv) {
+              world[each] = dataRecv[each];
+            }
+            drawNextFrame();          
         } catch (e) {
             alert("socket on message: " + e);
         }
